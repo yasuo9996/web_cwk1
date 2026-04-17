@@ -11,3 +11,14 @@ Delete: DELETE /v1/listening/{record_id}
 
 Automatically create tables upon startup (tracks / user_profiles / listening_records)
 Automatically insert a default Track (to avoid a 404 error when immediately creating a listening record due to the non-existence of the track)
+
+finished things
+Users can submit a listening record (such as "I listened to which song", "I liked/ skipped which song"). They can view all the records.
+They can also check a specific record by its ID. If they make a mistake (for example, they intended to "listen" but mistakenly chose "like"), they can update it.
+Erroneous submitted records can be deleted.
+
+undoing things
+Examine the acoustic features of a certain song
+Find similar songs (using cosine similarity)
+View the user's music taste profile (insights)
+View the analysis of the overall feature distribution (analytics)
