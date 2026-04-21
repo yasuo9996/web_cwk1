@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HarmonySphere - Music Home</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div id="toast-wrap"></div>
+  <div class="container">
+    <section class="header">
+      <h1>HarmonySphere</h1>
+      <p>你的音乐发现与偏好平台</p>
+      <nav class="nav">
+        <a class="active" href="/home">首页</a>
+        <a href="/tracks">发现音乐</a>
+        <a href="/listening">我的收藏</a>
+        <a href="/insights">我的洞察</a>
+        <a href="#" onclick="logout()">退出登录</a>
+      </nav>
+    </section>
+
+    <section class="hero">
+      <span class="pill">Spotify-inspired Experience</span>
+      <h2>Find songs you like, and save them.</h2>
+      <p>浏览音乐列表、添加收藏、查看相似歌曲推荐，像真实音乐产品一样使用。</p>
+    </section>
+
+    <section class="grid">
+      <article class="card song-list">
+        <h2>推荐音乐</h2>
+        <p>点击收藏即可加入你的音乐库。</p>
+        <div class="toolbar">
+          <button onclick="loadTracks()">刷新列表</button>
+          <button class="ghost" onclick="seedSpotifyTracks()">导入 Spotify 示例歌曲</button>
+        </div>
+        <div id="music-grid" class="music-grid"></div>
+        <div id="music-empty" class="empty" style="display:none;">暂无歌曲，请先导入示例歌曲。</div>
+      </article>
+
+      <aside class="card side">
+        <h2>我的收藏</h2>
+        <p>你收藏的歌曲会显示在这里。</p>
+        <div id="fav-list" class="fav-list"></div>
+        <div id="fav-empty" class="empty" style="display:none;">还没有收藏，去左侧列表点“收藏”吧。</div>
+
+        <div class="stats">
+          <div class="stat"><div class="label">歌曲总数</div><div id="stat-tracks" class="value">0</div></div>
+          <div class="stat"><div class="label">收藏数量</div><div id="stat-favs" class="value">0</div></div>
+          <div class="stat"><div class="label">平均能量</div><div id="stat-energy" class="value">-</div></div>
+          <div class="stat"><div class="label">平均舞动性</div><div id="stat-dance" class="value">-</div></div>
+        </div>
+      </aside>
+    </section>
+  </div>
+
+  <script src="/static/app.js"></script>
+  <script>
+    let allTracks = [];
+    let favorites = JSON.parse(localStorage.getItem('hs_favorites') || '[]');
+
+    async function seedSpotifyTracks() {
+      const samples = [
+        { title: 'Blinding Lights', artist: 'The Weeknd', album: 'After Hours', duration_ms: 200040, popularity: 95, danceability: 0.74, energy: 0.73, loudness: -5.9, valence: 0.34, acousticness: 0.001, tempo: 171.0 },
+        { title: 'Levitating', artist: 'Dua Lipa', album: 'Future Nostalgia', duration_ms: 203064, popularity: 93, danceability: 0.70, energy: 0.80, loudness: -3.8, valence: 0.91, acousticness: 0.06, tempo: 103.0 },
+        { title: 'As It Was', artist: 'Harry Styles', album: 'Harry\'s House', duration_ms: 167303, popularity: 92, danceability: 0.52, energy: 0.73, loudness: -5.3, valence: 0.66, acousticness: 0.35, tempo: 174.0 },
+        { title: 'bad guy', artist: 'Billie Eilish', album: 'WHEN WE ALL FALL ASLEEP, WHERE DO WE GO?', duration_ms: 194088, popularity: 90, danceability: 0.70, energy: 0.43, loudness: -10.9, valence: 0.56, acousticness: 0.33, tempo: 135.0 }
+      ];
+
+      for (const t of samples) {
+        try {
+          await requestJson('/v1/tracks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(t)
+          });
+        } catch (err) {
+        }
+      }
+
+      showToast('Spotify 示例歌曲已准备完成', 'ok');
+      await loadTracks();
+    }
+
+    function saveFavorites() {
+      localStorage.setItem('hs_favorites', JSON.stringify(favorites));
+    }
+
+    function isFav(trackId) {
+      return favorites.some((f) => f.id === trackId);
+    }
+
+    async function addFavorite(trackId) {
+      const track = allTracks.find((t) => t.id === trackId);
+      if (!track) return;
+      if (isFav(trackId)) {
+        showToast('已在收藏中', 'bad');
+        return;
+      }
+
+      favorites.push(track);
+      saveFavorites();
+      renderFavorites();
+      renderTracks();
+
+      try {
+        await requestJson('/v1/listening-records', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: 1, track_id: trackId, action_type: 'like' })
+        });
+      } catch (err) {
+      }
+
+      showToast('已收藏音乐', 'ok');
+    }
+
+    async function removeFavorite(trackId) {
+      favorites = favorites.filter((f) => f.id !== trackId);
+      saveFavorites();
+      renderFavorites();
+      renderTracks();
+      showToast('已移除收藏', 'ok');
+    }
+
+    async function loadTracks() {
+      try {
+        const tracks = await requestJson('/v1/tracks?limit=50');
+        allTracks = tracks.map(enrichTrack);
+        renderTracks();
+        renderFavorites();
+      } catch (err) {
+        showToast(err.message, 'bad');
+      }
+    }
+
+    function renderTracks() {
+      const grid = document.getElementById('music-grid');
+      const empty = document.getElementById('music-empty');
+      grid.innerHTML = '';
+
+      if (!allTracks.length) {
+        empty.style.display = 'block';
+      } else {
+        empty.style.display = 'none';
+      }
+
+      for (const t of allTracks) {
+        const card = document.createElement('div');
+        card.className = 'track-card';
+        card.innerHTML = `
+          <img src="${t.coverUrl}" alt="${t.title}" />
+          <div class="track-main">
+            <h3>${t.title}</h3>
+            <div class="meta">${t.artist} · ${t.album || 'Single'} · ${formatDuration(t.duration_ms)}</div>
+            <div class="tags">Energy ${t.energy} · Dance ${t.danceability} · Popularity ${t.popularity ?? '-'}</div>
+          </div>
+          <div class="track-actions">
+            ${t.spotifyUrl ? `<a href="${t.spotifyUrl}" target="_blank"><button class="ghost">Spotify</button></a>` : ''}
+            ${isFav(t.id)
+              ? `<button onclick="removeFavorite(${t.id})">已收藏</button>`
+              : `<button onclick="addFavorite(${t.id})">收藏</button>`}
+          </div>
+        `;
+        grid.appendChild(card);
+      }
+
+      document.getElementById('stat-tracks').textContent = String(allTracks.length);
+      const avgEnergy = allTracks.length ? (allTracks.reduce((s, t) => s + (t.energy || 0), 0) / allTracks.length).toFixed(2) : '-';
+      const avgDance = allTracks.length ? (allTracks.reduce((s, t) => s + (t.danceability || 0), 0) / allTracks.length).toFixed(2) : '-';
+      document.getElementById('stat-energy').textContent = String(avgEnergy);
+      document.getElementById('stat-dance').textContent = String(avgDance);
+    }
+
+    function renderFavorites() {
+      const list = document.getElementById('fav-list');
+      const empty = document.getElementById('fav-empty');
+      list.innerHTML = '';
+      if (!favorites.length) {
+        empty.style.display = 'block';
+      } else {
+        empty.style.display = 'none';
+      }
+
+      favorites.forEach((f) => {
+        const row = document.createElement('div');
+        row.className = 'fav-item';
+        row.innerHTML = `
+          <div>
+            <div class="name">${f.title}</div>
+            <div class="desc">${f.artist}</div>
+          </div>
+          <button class="ghost" onclick="removeFavorite(${f.id})">移除</button>
+        `;
+        list.appendChild(row);
+      });
+
+      document.getElementById('stat-favs').textContent = String(favorites.length);
+    }
+
+    loadTracks();
+  </script>
+</body>
+</html>
