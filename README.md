@@ -16,13 +16,13 @@ HarmonySphere provides:
 
 This section is included to match the coursework submission checklist.
 
-- **Public GitHub Repository**: (add your repository URL here)
-- **API Documentation (Markdown)**: `API_DOCUMENTATION.md`
-- **API Documentation (PDF)**: (add your exported PDF link/path here)
-- **Technical Report (Markdown)**: `TECHNICAL_REPORT.md`
-- **Technical Report (PDF)**: (add your exported PDF link/path here)
-- **GenAI Appendix Template**: `GENAI_APPENDIX_TEMPLATE.md`
-- **Presentation Slides (PPTX)**: (add your slide link/path here)
+- **Public GitHub Repository**: (https://github.com/yasuo9996/web_cwk1.git)
+- **API Documentation (Markdown)**: (https://github.com/yasuo9996/web_cwk1/blob/main/API_DOCUMENTATION_SUBMISSION.md)
+- **API Documentation (PDF)**: (https://github.com/yasuo9996/web_cwk1/blob/main/API_DOCUMENTATION_SUBMISSION.pdf)
+- **Technical Report (Markdown)**: (https://github.com/yasuo9996/web_cwk1/blob/main/TECHNICAL_REPORT.md)
+- **Technical Report (PDF)**: (https://github.com/yasuo9996/web_cwk1/blob/main/TECHNICAL_REPORT.pdf)
+- **GenAI Appendix Template**: (https://github.com/yasuo9996/web_cwk1/blob/main/TECHNICAL_REPORT.pdf)
+- **Presentation Slides (PPTX)**: (https://github.com/yasuo9996/web_cwk1/blob/main/HarmonySphere%20API%20Presentation.pptx)
 
 ---
 
@@ -115,7 +115,7 @@ Get token via login endpoint:
 
 - Interactive docs (Swagger): `http://127.0.0.1:8000/docs`
 - ReDoc: `http://127.0.0.1:8000/redoc`
-- Full API write-up: `API_DOCUMENTATION.md`
+- Full API write-up: `API_DOCUMENTATION.pdf`
 
 ---
 
@@ -151,7 +151,7 @@ The test suite covers:
 GenAI tools were used for planning, debugging support, and documentation drafting. All outputs were reviewed and adapted manually before inclusion.
 
 Detailed declaration and log template:
-- `GENAI_APPENDIX_TEMPLATE.md`
+- `GENAI_APPENDIX_TEMPLATE.pdf`
 
 ---
 
