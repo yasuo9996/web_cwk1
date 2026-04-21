@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HarmonySphere - 登录</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+  <style>
+    .auth-wrap { max-width: 440px; margin: 60px auto; }
+    .auth-card { background: rgba(18,26,48,.96); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+    .auth-card h2 { margin: 0 0 6px; }
+    .auth-card p { margin: 0 0 12px; color: var(--muted); font-size: 13px; }
+    .auth-card .field { margin-bottom: 8px; }
+    .switch { margin-top: 12px; font-size: 13px; color: var(--muted); }
+    .switch a { color: #c8d8ff; }
+  </style>
+</head>
+<body>
+  <div id="toast-wrap"></div>
+  <div class="container">
+    <div class="auth-wrap">
+      <div class="auth-card" id="login-card">
+        <h2>登录 HarmonySphere</h2>
+        <p>登录后进入音乐平台首页。</p>
+        <div class="field"><input id="login-username" placeholder="用户名" /></div>
+        <div class="field"><input id="login-password" type="password" placeholder="密码" /></div>
+        <div class="actions"><button onclick="login()">登录</button></div>
+        <div class="switch">没有账号？<a href="#" onclick="showRegister(event)">去注册</a></div>
+      </div>
+
+      <div class="auth-card" id="register-card" style="display:none;">
+        <h2>注册新账号</h2>
+        <p>注册完成后即可登录。</p>
+        <div class="field"><input id="reg-username" placeholder="用户名（3-80字符）" /></div>
+        <div class="field"><input id="reg-password" type="password" placeholder="密码（至少6位）" /></div>
+        <div class="actions"><button onclick="registerUser()">注册</button></div>
+        <div class="switch">已有账号？<a href="#" onclick="showLogin(event)">去登录</a></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+  <script>
+    function showRegister(e) {
+      e.preventDefault();
+      document.getElementById('login-card').style.display = 'none';
+      document.getElementById('register-card').style.display = 'block';
+    }
+
+    function showLogin(e) {
+      e.preventDefault();
+      document.getElementById('register-card').style.display = 'none';
+      document.getElementById('login-card').style.display = 'block';
+    }
+
+    async function registerUser() {
+      const username = document.getElementById('reg-username').value.trim();
+      const password = document.getElementById('reg-password').value;
+      if (!username || !password) return showToast('请填写用户名和密码', 'bad');
+
+      try {
+        await requestJson('/v1/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        showToast('注册成功，请登录', 'ok');
+        showLogin({ preventDefault: () => {} });
+      } catch (err) {
+        showToast(err.message, 'bad');
+      }
+    }
+
+    async function login() {
+      const username = document.getElementById('login-username').value.trim();
+      const password = document.getElementById('login-password').value;
+      if (!username || !password) return showToast('请填写用户名和密码', 'bad');
+
+      try {
+        const data = await requestJson('/v1/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        localStorage.setItem('hs_auth_token', data.token);
+        localStorage.setItem('hs_username', username);
+        window.location.href = '/home';
+      } catch (err) {
+        showToast(err.message, 'bad');
+      }
+    }
+
+    if (localStorage.getItem('hs_auth_token')) {
+      window.location.href = '/home';
+    }
+  </script>
+</body>
+</html>

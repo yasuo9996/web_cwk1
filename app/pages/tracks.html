@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HarmonySphere - 发现音乐</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div id="toast-wrap"></div>
+  <div class="container">
+    <section class="header">
+      <h1>发现音乐</h1>
+      <p>浏览歌曲、查看特征、寻找相似音乐。</p>
+      <nav class="nav">
+        <a href="/home">首页</a>
+        <a class="active" href="/tracks">发现音乐</a>
+        <a href="/listening">我的收藏</a>
+        <a href="/insights">我的洞察</a>
+        <a href="#" onclick="logout()">退出登录</a>
+      </nav>
+    </section>
+
+    <section class="grid">
+      <article class="card song-list">
+        <h2>歌曲列表</h2>
+        <p>点击歌曲可查看特征，点击“相似”发现推荐。</p>
+        <div class="toolbar">
+          <input id="track-id-input" type="number" min="1" placeholder="输入歌曲ID查看详情" />
+          <button onclick="loadTrackDetail()">查看详情</button>
+          <button class="ghost" onclick="loadTracks()">刷新</button>
+        </div>
+        <div id="track-grid" class="music-grid"></div>
+        <div id="track-empty" class="empty" style="display:none;">暂无歌曲。先回首页导入 Spotify 示例歌曲。</div>
+      </article>
+
+      <aside class="card side">
+        <h2>歌曲详情</h2>
+        <p>展示歌曲特征与相似推荐。</p>
+        <div id="detail-card" class="empty">请选择一首歌曲。</div>
+
+        <h2 style="margin-top:12px;">相似推荐</h2>
+        <div id="similar-list" class="fav-list"></div>
+        <div id="similar-empty" class="empty" style="display:none;">暂无相似推荐。</div>
+      </aside>
+    </section>
+  </div>
+
+  <script src="/static/app.js"></script>
+  <script>
+    let tracks = [];
+
+    async function loadTracks() {
+      try {
+        const data = await requestJson('/v1/tracks?limit=50');
+        tracks = data.map(enrichTrack);
+        renderTracks();
+      } catch (err) {
+        showToast(err.message, 'bad');
+      }
+    }
+
+    function renderTracks() {
+      const grid = document.getElementById('track-grid');
+      const empty = document.getElementById('track-empty');
+      grid.innerHTML = '';
+
+      if (!tracks.length) empty.style.display = 'block';
+      else empty.style.display = 'none';
+
+      tracks.forEach((t) => {
+        const card = document.createElement('div');
+        card.className = 'track-card';
+        card.innerHTML = `
+          <img src="${t.coverUrl}" alt="${t.title}" />
+          <div class="track-main">
+            <h3>#${t.id} ${t.title}</h3>
+            <div class="meta">${t.artist} · ${t.album || 'Single'}</div>
+            <div class="tags">Energy ${t.energy} · Dance ${t.danceability} · Valence ${t.valence}</div>
+          </div>
+          <div class="track-actions">
+            <button onclick="showDetail(${t.id})">详情</button>
+            <button class="ghost" onclick="showSimilar(${t.id})">相似</button>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    async function loadTrackDetail() {
+      const id = Number(document.getElementById('track-id-input').value);
+      if (!id) return showToast('请输入有效歌曲ID', 'bad');
+      await showDetail(id);
+    }
+
+    async function showDetail(trackId) {
+      try {
+        const d = enrichTrack(await requestJson(`/v1/tracks/features/${trackId}`));
+        const card = document.getElementById('detail-card');
+        card.className = 'track-card';
+        card.innerHTML = `
+          <img src="${d.coverUrl}" alt="${d.title}" />
+          <div class="track-main">
+            <h3>${d.title}</h3>
+            <div class="meta">${d.artist} · ${d.album || 'Single'} · ${formatDuration(d.duration_ms)}</div>
+            <div class="tags">Energy ${d.energy} · Dance ${d.danceability} · Valence ${d.valence} · Tempo ${d.tempo ?? '-'}</div>
+          </div>
+          <div class="track-actions">
+            ${d.spotifyUrl ? `<a href="${d.spotifyUrl}" target="_blank"><button class="ghost">Spotify</button></a>` : ''}
+          </div>
+        `;
+      } catch (err) {
+        showToast(err.message, 'bad');
+      }
+    }
+
+    async function showSimilar(trackId) {
+      try {
+        const sims = await requestJson(`/v1/tracks/similar?track_id=${trackId}&limit=6`);
+        const list = document.getElementById('similar-list');
+        const empty = document.getElementById('similar-empty');
+        list.innerHTML = '';
+        if (!sims.length) {
+          empty.style.display = 'block';
+          return;
+        }
+        empty.style.display = 'none';
+
+        for (const s of sims) {
+          let t = tracks.find((x) => x.id === s.track_id);
+          if (!t) {
+            try { t = enrichTrack(await requestJson(`/v1/tracks/features/${s.track_id}`)); } catch { continue; }
+          }
+          const row = document.createElement('div');
+          row.className = 'fav-item';
+          row.innerHTML = `
+            <div>
+              <div class="name">${t.title} · ${t.artist}</div>
+              <div class="desc">相似度 ${s.similarity}</div>
+            </div>
+            <button class="ghost" onclick="showDetail(${t.id})">查看</button>
+          `;
+          list.appendChild(row);
+        }
+      } catch (err) {
+        showToast(err.message, 'bad');
+      }
+    }
+
+    loadTracks();
+  </script>
+</body>
+</html>

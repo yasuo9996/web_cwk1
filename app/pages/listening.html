@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HarmonySphere - 我的收藏</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div id="toast-wrap"></div>
+  <div class="container">
+    <section class="header">
+      <h1>我的收藏</h1>
+      <p>像音乐平台一样查看你收藏与行为记录。</p>
+      <nav class="nav">
+        <a href="/home">首页</a>
+        <a href="/tracks">发现音乐</a>
+        <a class="active" href="/listening">我的收藏</a>
+        <a href="/insights">我的洞察</a>
+        <a href="#" onclick="logout()">退出登录</a>
+      </nav>
+    </section>
+
+    <section class="grid">
+      <article class="card song-list">
+        <h2>我的喜欢</h2>
+        <p>展示 action_type 为 like 的收藏歌曲。</p>
+        <div class="toolbar">
+          <button onclick="loadLikes()">刷新收藏</button>
+          <button class="ghost" onclick="loadAllRecords()">查看全部行为</button>
+        </div>
+        <div id="likes-grid" class="music-grid"></div>
+        <div id="likes-empty" class="empty" style="display:none;">你还没有收藏歌曲。</div>
+      </article>
+
+      <aside class="card side">
+        <h2>行为日志</h2>
+        <p>最近 20 条 listen / like / skip 记录。</p>
+        <div id="record-list" class="fav-list"></div>
+        <div id="record-empty" class="empty" style="display:none;">暂无行为日志。</div>
+      </aside>
+    </section>
+  </div>
+
+  <script src="/static/app.js"></script>
+  <script>
+    async function loadAllRecords() {
+      try {
+        const records = await requestJson('/v1/listening-records');
+        renderRecords(records.slice(0, 20));
+      } catch (err) {
+        showToast(err.message, 'bad');
+      }
+    }
+
+    async function loadLikes() {
+      try {
+        const records = await requestJson('/v1/listening-records');
+        const likes = records.filter((r) => r.action_type === 'like');
+        renderLikes(likes);
+        renderRecords(records.slice(0, 20));
+      } catch (err) {
+        showToast(err.message, 'bad');
+      }
+    }
+
+    async function resolveTrack(trackId) {
+      try {
+        return enrichTrack(await requestJson(`/v1/tracks/features/${trackId}`));
+      } catch {
+        return null;
+      }
+    }
+
+    async function renderLikes(likes) {
+      const grid = document.getElementById('likes-grid');
+      const empty = document.getElementById('likes-empty');
+      grid.innerHTML = '';
+
+      if (!likes.length) {
+        empty.style.display = 'block';
+        return;
+      }
+      empty.style.display = 'none';
+
+      for (const item of likes) {
+        const t = await resolveTrack(item.track_id);
+        if (!t) continue;
+
+        const card = document.createElement('div');
+        card.className = 'track-card';
+        card.innerHTML = `
+          <img src="${t.coverUrl}" alt="${t.title}" />
+          <div class="track-main">
+            <h3>${t.title}</h3>
+            <div class="meta">${t.artist} · ${t.album || 'Single'}</div>
+            <div class="tags">收藏时间: ${new Date(item.listened_at).toLocaleString()}</div>
+          </div>
+          <div class="track-actions">
+            <button class="ghost" onclick="removeLike(${item.id})">取消收藏</button>
+          </div>
+        `;
+        grid.appendChild(card);
+      }
+    }
+
+    function renderRecords(records) {
+      const list = document.getElementById('record-list');
+      const empty = document.getElementById('record-empty');
+      list.innerHTML = '';
+
+      if (!records.length) {
+        empty.style.display = 'block';
+        return;
+      }
+      empty.style.display = 'none';
+
+      records.forEach((r) => {
+        const row = document.createElement('div');
+        row.className = 'fav-item';
+        row.innerHTML = `
+          <div>
+            <div class="name">用户 #${r.user_id} · 歌曲 #${r.track_id}</div>
+            <div class="desc">${r.action_type} · ${new Date(r.listened_at).toLocaleString()}</div>
+          </div>
+          <button class="ghost" onclick="deleteRecord(${r.id})">删除</button>
+        `;
+        list.appendChild(row);
+      });
+    }
+
+    async function removeLike(recordId) {
+      try {
+        await requestJson(`/v1/listening-records/${recordId}`, { method: 'DELETE' });
+        showToast('已取消收藏', 'ok');
+        await loadLikes();
+      } catch (err) {
+        showToast(err.message, 'bad');
+      }
+    }
+
+    async function deleteRecord(recordId) {
+      try {
+        await requestJson(`/v1/listening-records/${recordId}`, { method: 'DELETE' });
+        showToast('记录已删除', 'ok');
+        await loadLikes();
+      } catch (err) {
+        showToast(err.message, 'bad');
+      }
+    }
+
+    loadLikes();
+  </script>
+</body>
+</html>

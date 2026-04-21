@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HarmonySphere - 我的洞察</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div id="toast-wrap"></div>
+  <div class="container">
+    <section class="header">
+      <h1>我的音乐洞察</h1>
+      <p>根据行为记录生成个人偏好画像，并查看曲库分布。</p>
+      <nav class="nav">
+        <a href="/home">首页</a>
+        <a href="/tracks">发现音乐</a>
+        <a href="/listening">我的收藏</a>
+        <a class="active" href="/insights">我的洞察</a>
+        <a href="#" onclick="logout()">退出登录</a>
+      </nav>
+    </section>
+
+    <section class="grid">
+      <article class="card song-list">
+        <h2>用户画像</h2>
+        <p>根据当前登录用户自动生成偏好范围与平均节奏。</p>
+        <div class="toolbar">
+          <button onclick="loadInsights()">查看我的画像</button>
+        </div>
+
+        <div class="stats">
+          <div class="stat"><div class="label">记录总数</div><div id="v-total" class="value">-</div></div>
+          <div class="stat"><div class="label">平均 Tempo</div><div id="v-tempo" class="value">-</div></div>
+          <div class="stat"><div class="label">能量区间</div><div id="v-energy" class="value" style="font-size:13px;">-</div></div>
+          <div class="stat"><div class="label">舞动区间</div><div id="v-dance" class="value" style="font-size:13px;">-</div></div>
+        </div>
+      </article>
+
+      <aside class="card side">
+        <h2>特征分布</h2>
+        <p>查看曲库在某特征维度上的分布概况。</p>
+        <div class="toolbar">
+          <select id="feature">
+            <option value="energy">energy</option>
+            <option value="danceability">danceability</option>
+            <option value="valence">valence</option>
+            <option value="acousticness">acousticness</option>
+            <option value="popularity">popularity</option>
+            <option value="tempo">tempo</option>
+          </select>
+          <input id="bins" type="number" value="10" min="1" max="50" />
+          <button onclick="loadDistribution()">查看分布</button>
+        </div>
+
+        <div id="dist-list" class="fav-list"></div>
+        <div id="dist-empty" class="empty" style="display:none;">暂无分布数据。</div>
+      </aside>
+    </section>
+  </div>
+
+  <script src="/static/app.js"></script>
+  <script>
+    async function loadInsights() {
+            try {
+        const data = await requestJson('/v1/users/me/insights');
+        document.getElementById('v-total').textContent = data.total_records ?? 0;
+        document.getElementById('v-tempo').textContent = data.avg_tempo ?? '-';
+        document.getElementById('v-energy').textContent = data.preferred_energy_range ? data.preferred_energy_range.join(' ~ ') : '-';
+        document.getElementById('v-dance').textContent = data.preferred_danceability_range ? data.preferred_danceability_range.join(' ~ ') : '-';
+        showToast('画像已更新', 'ok');
+      } catch (err) {
+        showToast(err.message, 'bad');
+      }
+    }
+
+    async function loadDistribution() {
+      const feature = document.getElementById('feature').value;
+      const bins = document.getElementById('bins').value;
+      const list = document.getElementById('dist-list');
+      const empty = document.getElementById('dist-empty');
+      list.innerHTML = '';
+
+      try {
+        const data = await requestJson(`/v1/analytics/feature-distribution?feature=${feature}&bins=${bins}`);
+        if (!data.bins || !data.bins.length) {
+          empty.style.display = 'block';
+          return;
+        }
+        empty.style.display = 'none';
+
+        const sorted = [...data.bins].sort((a, b) => b.count - a.count).slice(0, 8);
+        sorted.forEach((b) => {
+          const row = document.createElement('div');
+          row.className = 'fav-item';
+          row.innerHTML = `
+            <div>
+              <div class="name">${b.range_start} ~ ${b.range_end}</div>
+              <div class="desc">数量 ${b.count}</div>
+            </div>
+          `;
+          list.appendChild(row);
+        });
+        showToast('分布已更新', 'ok');
+      } catch (err) {
+        showToast(err.message, 'bad');
+      }
+    }
+
+    loadInsights();
+    loadDistribution();
+  </script>
+</body>
+</html>
